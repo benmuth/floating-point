@@ -119,26 +119,34 @@ export fn draw(opaque_state: *anyopaque) void {
 
     // number components
     const sign_text = std.fmt.bufPrintZ(
-        state.buf[100..110],
-        "{b}",
-        .{state.sign},
+        state.buf[100..150],
+        "binary: {b}; decimal: {d}",
+        .{ state.sign, state.sign },
     ) catch @panic("Failed to render component");
 
     const exp_text = std.fmt.bufPrintZ(
-        state.buf[110..150],
-        "{b}",
-        .{state.exponent},
+        state.buf[150..200],
+        "binary: {b}; decimal: {d}",
+        .{ state.exponent, state.exponent },
     ) catch @panic("Failed to render component");
 
     const man_text = std.fmt.bufPrintZ(
-        state.buf[150..200],
-        "{b}",
-        .{state.mantissa},
+        state.buf[200..300],
+        "binary: {b}; decimal: {d}",
+        .{ state.mantissa, state.mantissa },
     ) catch @panic("Failed to render component");
 
     rl.drawText(sign_text, 0, 200, 10, rl.Color.black);
-    rl.drawText(exp_text, 100, 200, 10, rl.Color.black);
-    rl.drawText(man_text, 200, 200, 10, rl.Color.black);
+    rl.drawText(exp_text, 200, 200, 10, rl.Color.black);
+    rl.drawText(man_text, 400, 200, 10, rl.Color.black);
+
+    // window formula
+    const formula_text = std.fmt.bufPrintZ(
+        state.buf[300..400],
+        "formula: 2^{d}-15\n",
+        .{state.exponent},
+    ) catch @panic("Failed to render formula");
+    rl.drawText(formula_text, 200, 300, 10, rl.Color.black);
 
     // number line
     const line_margin_ratio = 6;
@@ -146,6 +154,53 @@ export fn draw(opaque_state: *anyopaque) void {
     const line_end = line_start * (line_margin_ratio - 1);
     const line_height = state.window_height - 100;
     rl.drawLine(line_start, line_height, line_end, line_height, rl.Color.black);
+
+    // numeric bounds
+    std.debug.print("exponent: {d}\n", .{state.exponent});
+    const lower_bound: f32 = std.math.pow(f32, 2, (@as(f32, @floatFromInt(state.exponent)) - 15));
+    const upper_bound: f32 = lower_bound * 2;
+
+    const lower_bound_text = std.fmt.bufPrintZ(
+        state.buf[400..450],
+        "{d}",
+        .{lower_bound},
+    ) catch @panic("failed to render lower bound");
+
+    const upper_bound_text = std.fmt.bufPrintZ(
+        state.buf[450..500],
+        "{d}",
+        .{upper_bound},
+    ) catch @panic("failed to render upper bound");
+
+    rl.drawText(lower_bound_text, line_start, line_height - 20, 20, rl.Color.black);
+    rl.drawText(upper_bound_text, line_end, line_height - 20, 20, rl.Color.black);
+
+    // offset
+    const line_start_float: f16 = @floatFromInt(line_start);
+    const line_end_float: f16 = @floatFromInt(line_end);
+    const mantissa_float: f16 = @floatFromInt(state.mantissa);
+    const line_height_float: f16 = @floatFromInt(line_height);
+    std.debug.print("line_start_float: {d} line_end_float: {d} mantissa_float: {d}\n", .{
+        line_start_float,
+        line_end_float,
+        mantissa_float,
+    });
+
+    const normalized_mantissa = mantissa_float / std.math.pow(f32, 2, 10);
+    std.debug.print("normalized mantissa: {d}\n", .{normalized_mantissa});
+    const offset_pos = std.math.lerp(
+        line_start_float,
+        line_end_float,
+        normalized_mantissa,
+    );
+
+    const offset_marker_top: rl.Vector2 = .{ .x = offset_pos, .y = line_height_float + 10 };
+    const offset_marker_left: rl.Vector2 = .{ .x = offset_pos - 10, .y = line_height_float + 20 };
+    const offset_marker_right: rl.Vector2 = .{ .x = offset_pos + 10, .y = line_height_float + 20 };
+
+    std.debug.print("offset marker top: {any}\n", .{offset_marker_top});
+
+    rl.drawTriangle(offset_marker_top, offset_marker_left, offset_marker_right, rl.Color.black);
 
     rl.endDrawing();
 }
