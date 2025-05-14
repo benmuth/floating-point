@@ -9,6 +9,18 @@ export fn init(state: *State, width: i32, height: i32, buf: *[1024]u8) void {
     state.window_height = height;
     state.number = fp_number;
     state.number_text = std.fmt.bufPrintZ(buf, "{d}", .{state.number}) catch @panic("Failed to render number text");
+
+    state.bit_repr = @bitCast(state.number);
+
+    // fp16 bit representation
+    // 0 1    6               16
+    // ┌─┬────┬────────────────┐
+    // │S│ E  │        M       │
+    // └─┴────┴────────────────┘
+    state.sign = (@as(u1, @truncate((state.bit_repr >> 15) & 0b1)));
+    state.exponent = @as(u5, @truncate((state.bit_repr >> 10) & 0b11111));
+    state.mantissa = @as(u10, @truncate(state.bit_repr & 0b1111111111));
+
     state.buf = buf;
     state.cursor_pos = 0;
     state.is_text_focused = false;
@@ -38,8 +50,7 @@ export fn update(opaque_state: *anyopaque) void {
         // TODO: only allow digits to be entered
         while (char > 0) {
             std.debug.print("char: {d}\n", .{char});
-            // NOTE: Only allow numbers
-            const is_digit_or_period_or_dash = (char >= 48 and char <= 57) or char == 46;
+            const is_digit_or_period_or_dash = (char >= 48 and char <= 57) or char == 46 or char == 45;
             if (is_digit_or_period_or_dash and state.cursor_pos < state.number_text.len) {
                 state.number_text[state.cursor_pos] = @intCast(char);
                 state.cursor_pos += 1;
@@ -57,12 +68,28 @@ export fn update(opaque_state: *anyopaque) void {
         }
 
         const cleaned_number = std.mem.span(state.number_text.ptr);
-        // HACK: deal with an empty string better
+
+        std.debug.print("cleaned number: {s}\n", .{cleaned_number});
+        std.debug.print("cleaned number: {any}\n", .{cleaned_number});
+
+        // TODO: deal with an empty string better
         if (cleaned_number.len == 0) {
             state.number = 0;
         } else {
-            state.number = std.fmt.parseFloat(f16, cleaned_number) catch @panic("couldn't parse inputted float");
+            // state.number = std.fmt.parseFloat(f16, cleaned_number) catch @panic("couldn't parse inputted float");
+            state.number = std.fmt.parseFloat(f16, cleaned_number) catch return;
         }
+
+        state.bit_repr = @bitCast(state.number);
+
+        // fp16 bit representation
+        // 0 1    6               16
+        // ┌─┬────┬────────────────┐
+        // │S│ E  │        M       │
+        // └─┴────┴────────────────┘
+        state.sign = (@as(u1, @truncate((state.bit_repr >> 15) & 0b1)));
+        state.exponent = @as(u5, @truncate((state.bit_repr >> 10) & 0b11111));
+        state.mantissa = @as(u10, @truncate(state.bit_repr & 0b1111111111));
     }
 }
 
@@ -70,7 +97,7 @@ export fn reload(opaque_state: *anyopaque) void {
     const state: *State = @ptrCast(@alignCast(opaque_state));
 
     state.number = fp_number;
-    state.number_text = std.fmt.bufPrintZ(state.buf, "{d}", .{state.number}) catch @panic(
+    state.number_text = std.fmt.bufPrintZ(state.buf[0..100], "{d}", .{state.number}) catch @panic(
         "Failed to render number text",
     );
     state.text_rect.x = @as(f32, @floatFromInt(@divTrunc(state.window_width, 5))) * 2.5;
@@ -89,6 +116,29 @@ export fn draw(opaque_state: *anyopaque) void {
 
     // floating point number
     rl.drawText(state.number_text, @intFromFloat(state.text_rect.x), @intFromFloat(state.text_rect.y), 20, rl.Color.black);
+
+    // number components
+    const sign_text = std.fmt.bufPrintZ(
+        state.buf[100..110],
+        "{b}",
+        .{state.sign},
+    ) catch @panic("Failed to render component");
+
+    const exp_text = std.fmt.bufPrintZ(
+        state.buf[110..150],
+        "{b}",
+        .{state.exponent},
+    ) catch @panic("Failed to render component");
+
+    const man_text = std.fmt.bufPrintZ(
+        state.buf[150..200],
+        "{b}",
+        .{state.mantissa},
+    ) catch @panic("Failed to render component");
+
+    rl.drawText(sign_text, 0, 200, 10, rl.Color.black);
+    rl.drawText(exp_text, 100, 200, 10, rl.Color.black);
+    rl.drawText(man_text, 200, 200, 10, rl.Color.black);
 
     // number line
     const line_margin_ratio = 6;

@@ -6,6 +6,12 @@ window_height: i32,
 number: f16,
 number_text: [:0]u8,
 
+bit_repr: u16,
+
+sign: u1,
+exponent: u5,
+mantissa: u10,
+
 buf: *[1024]u8,
 
 cursor_pos: u32,
