@@ -1,12 +1,13 @@
 const std = @import("std");
 const rl = @import("raylib");
+const State = @import("state.zig");
 
 const window_width = 800;
 const window_height = 600;
 
 const StatePtr = *anyopaque;
 
-var init: *const fn (width: i32, height: i32) StatePtr = undefined;
+var init: *const fn (width: i32, height: i32, buf: *[1024]u8) StatePtr = undefined;
 var update: *const fn (state: StatePtr) void = undefined;
 var reload: *const fn (state: StatePtr) void = undefined;
 var draw: *const fn (state: StatePtr) void = undefined;
@@ -18,18 +19,20 @@ pub fn main() !void {
 
     try loadLogicDll();
 
-    const state = init(window_width, window_height);
+    // const buffer: []u8 = try allocator.alloc(u8, 1024);
+    var buffer: [1024]u8 = undefined;
+
+    const state = init(
+        window_width,
+        window_height,
+        &buffer,
+    );
 
     rl.initWindow(window_width, window_height, "floating point");
     rl.setTargetFPS(60);
 
     while (!rl.windowShouldClose()) {
         if (rl.isKeyPressed(rl.KeyboardKey.backslash)) {
-            // unloadLogicDll() catch @panic("Failed to unload DLL");
-            // recompileLogicDll(allocator) catch @panic("Failed to recompile DLL");
-            // loadLogicDll() catch @panic("Failed to load logic DLL");
-            // reload();
-
             try unloadLogicDll();
             try recompileLogicDll(allocator);
             try loadLogicDll();
@@ -50,6 +53,7 @@ fn loadLogicDll() !void {
     var dyn_lib = std.DynLib.open("zig-out/lib/liblogic.dylib") catch {
         return error.OpenFail;
     };
+
     editor_dyn_lib = dyn_lib;
 
     init = dyn_lib.lookup(@TypeOf(init), "init") orelse return error.lookupFail;
