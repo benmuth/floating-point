@@ -143,7 +143,7 @@ export fn draw(opaque_state: *anyopaque) void {
     // window formula
     const formula_text = std.fmt.bufPrintZ(
         state.buf[300..400],
-        "formula: 2^{d}-15\n",
+        "formula: 2^({d}-15)\n",
         .{state.exponent},
     ) catch @panic("Failed to render formula");
     rl.drawText(formula_text, 200, 300, 10, rl.Color.black);
@@ -156,9 +156,15 @@ export fn draw(opaque_state: *anyopaque) void {
     rl.drawLine(line_start, line_height, line_end, line_height, rl.Color.black);
 
     // numeric bounds
-    std.debug.print("exponent: {d}\n", .{state.exponent});
-    const lower_bound: f32 = std.math.pow(f32, 2, (@as(f32, @floatFromInt(state.exponent)) - 15));
+    const lower_bound: f32 = if (state.mantissa & state.exponent == 0) 0 else std.math.pow(
+        f32,
+        2,
+        (@as(f32, @floatFromInt(state.exponent)) - 15),
+    );
     const upper_bound: f32 = lower_bound * 2;
+
+    std.debug.print("lower bound: {d}\n", .{lower_bound});
+    std.debug.print("upper bound: {d}\n", .{upper_bound});
 
     const lower_bound_text = std.fmt.bufPrintZ(
         state.buf[400..450],
@@ -175,19 +181,21 @@ export fn draw(opaque_state: *anyopaque) void {
     rl.drawText(lower_bound_text, line_start, line_height - 20, 20, rl.Color.black);
     rl.drawText(upper_bound_text, line_end, line_height - 20, 20, rl.Color.black);
 
-    // offset
+    std.debug.print("0 printed: {d}\n", .{std.math.pow(f32, 2, 0)});
+
+    // offset marker
     const line_start_float: f16 = @floatFromInt(line_start);
     const line_end_float: f16 = @floatFromInt(line_end);
     const mantissa_float: f16 = @floatFromInt(state.mantissa);
     const line_height_float: f16 = @floatFromInt(line_height);
-    std.debug.print("line_start_float: {d} line_end_float: {d} mantissa_float: {d}\n", .{
-        line_start_float,
-        line_end_float,
-        mantissa_float,
-    });
+    // std.debug.print("line_start_float: {d} line_end_float: {d} mantissa_float: {d}\n", .{
+    //     line_start_float,
+    //     line_end_float,
+    //     mantissa_float,
+    // });
 
     const normalized_mantissa = mantissa_float / std.math.pow(f32, 2, 10);
-    std.debug.print("normalized mantissa: {d}\n", .{normalized_mantissa});
+    // std.debug.print("normalized mantissa: {d}\n", .{normalized_mantissa});
     const offset_pos = std.math.lerp(
         line_start_float,
         line_end_float,
@@ -198,7 +206,7 @@ export fn draw(opaque_state: *anyopaque) void {
     const offset_marker_left: rl.Vector2 = .{ .x = offset_pos - 10, .y = line_height_float + 20 };
     const offset_marker_right: rl.Vector2 = .{ .x = offset_pos + 10, .y = line_height_float + 20 };
 
-    std.debug.print("offset marker top: {any}\n", .{offset_marker_top});
+    // std.debug.print("offset marker top: {any}\n", .{offset_marker_top});
 
     rl.drawTriangle(offset_marker_top, offset_marker_left, offset_marker_right, rl.Color.black);
 
