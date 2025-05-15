@@ -194,12 +194,20 @@ export fn draw(opaque_state: *anyopaque) void {
     rl.drawLine(line_start, line_height, line_end, line_height, rl.Color.black);
 
     // numeric bounds
-    const lower_bound: f32 = if (state.mantissa | state.exponent == 0) 0 else std.math.pow(
-        f32,
-        2,
-        (@as(f32, @floatFromInt(state.exponent)) - 15),
-    );
-    const upper_bound: f32 = lower_bound * 2;
+    var lower_bound: f32 = undefined;
+    var upper_bound: f32 = undefined;
+
+    if (state.exponent == 0) {
+        lower_bound = 0;
+        upper_bound = std.math.pow(f32, 2, -14);
+    } else {
+        lower_bound = std.math.pow(
+            f32,
+            2,
+            (@as(f32, @floatFromInt(state.exponent)) - 15),
+        );
+        upper_bound = lower_bound * 2;
+    }
 
     const lower_bound_text = std.fmt.bufPrintZ(
         state.buf[400..450],
