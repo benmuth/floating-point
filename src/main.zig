@@ -2,8 +2,8 @@ const std = @import("std");
 const rl = @import("raylib");
 const State = @import("state.zig");
 
-const window_width = 800;
-const window_height = 600;
+const window_width = 1200;
+const window_height = 800;
 
 const StatePtr = *anyopaque;
 

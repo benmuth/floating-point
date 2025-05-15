@@ -28,7 +28,7 @@ export fn init(state: *State, width: i32, height: i32, buf: *[1024]u8) void {
     state.cursor_pos = 0;
     state.is_text_focused = false;
     const text_width: f32 = @floatFromInt(state.window_width);
-    const text_height = 20;
+    const text_height = @as(f32, @floatFromInt(@divTrunc(state.window_height, 12)));
     state.text_rect = .{
         .x = 0,
         .y = @as(f32, @floatFromInt(@divTrunc(state.window_height, 6))),
@@ -40,6 +40,7 @@ export fn init(state: *State, width: i32, height: i32, buf: *[1024]u8) void {
 export fn update(opaque_state: *anyopaque) void {
     const state: *State = @ptrCast(@alignCast(opaque_state));
 
+    // Text input focus
     if (rl.isMouseButtonPressed(rl.MouseButton.left)) {
         if (rl.checkCollisionPointRec(rl.getMousePosition(), state.text_rect)) {
             state.is_text_focused = true;
@@ -48,10 +49,11 @@ export fn update(opaque_state: *anyopaque) void {
         }
     }
 
+    // Text input handling and number updating
     if (state.is_text_focused) {
         var char = rl.getCharPressed();
 
-        // handle multiple keys pressed in a single frame
+        // Handle multiple keys pressed in a single frame
         while (char > 0) {
             std.debug.print("char: {d}\n", .{char});
 
@@ -81,7 +83,7 @@ export fn update(opaque_state: *anyopaque) void {
         if (cleaned_number.len == 0) {
             state.number = 0;
         } else {
-            // handle incomplete/invalid input by skipping analysis
+            // Handle incomplete/invalid input by skipping analysis
             state.number = std.fmt.parseFloat(f16, cleaned_number) catch return;
         }
 
@@ -93,6 +95,7 @@ export fn update(opaque_state: *anyopaque) void {
     }
 }
 
+// TODO: this should probably recompute more state
 export fn reload(opaque_state: *anyopaque) void {
     const state: *State = @ptrCast(@alignCast(opaque_state));
 
@@ -109,52 +112,79 @@ export fn draw(opaque_state: *anyopaque) void {
     rl.beginDrawing();
     rl.clearBackground(rl.Color.white);
 
-    // text input
-    const text_box_color = if (state.is_text_focused) rl.Color.light_gray else rl.Color.gray;
+    // text input box
+    const text_box_color = if (state.is_text_focused) rl.Color.ray_white else rl.Color.light_gray;
     rl.drawRectangleRec(state.text_rect, text_box_color);
 
-    // floating point number
-    rl.drawText(state.number_text, @divTrunc(state.window_width, 3), @intFromFloat(state.text_rect.y), 20, rl.Color.black);
+    // inputted number
+    rl.drawText(state.number_text, @divTrunc(state.window_width, 2), @intFromFloat(state.text_rect.y), @intFromFloat(state.text_rect.height), rl.Color.black);
 
     // number components
     const sign_text = std.fmt.bufPrintZ(
         state.buf[fp_text_buffer_length .. fp_text_buffer_length + 50],
-        "binary: {b}; decimal: {d}",
+        "\tsign\t\nbinary: {b: <1}\ndecimal: {d}",
         .{ state.sign, state.sign },
     ) catch @panic("Failed to render component");
 
     const exp_text = std.fmt.bufPrintZ(
         state.buf[fp_text_buffer_length + 50 .. fp_text_buffer_length + 100],
-        "binary: {b}; decimal: {d}",
+        "\texponent\t\nbinary: {b: <5}\ndecimal: {d}",
         .{ state.exponent, state.exponent },
     ) catch @panic("Failed to render component");
 
     const man_text = std.fmt.bufPrintZ(
         state.buf[fp_text_buffer_length + 100 .. fp_text_buffer_length + 200],
-        "binary: {b}; decimal: {d}",
+        "\tmantissa\t\nbinary: {b: <10}\ndecimal: {d}",
         .{ state.mantissa, state.mantissa },
     ) catch @panic("Failed to render component");
 
-    rl.drawText(sign_text, 0, 200, 10, rl.Color.black);
-    rl.drawText(exp_text, 200, 200, 10, rl.Color.black);
-    rl.drawText(man_text, 400, 200, 10, rl.Color.black);
+    const component_text_size = 20;
+    const component_text_spacing = 4;
+    const component_text_y_pos: i32 = @as(i32, @intFromFloat(state.text_rect.height)) + 150;
+    rl.drawText(
+        sign_text,
+        @divTrunc(state.window_width, component_text_spacing),
+        component_text_y_pos,
+        component_text_size,
+        rl.Color.black,
+    );
+    rl.drawText(
+        exp_text,
+        @divTrunc(state.window_width, component_text_spacing) * 2,
+        component_text_y_pos,
+        component_text_size,
+        rl.Color.black,
+    );
+    rl.drawText(
+        man_text,
+        @divTrunc(state.window_width, component_text_spacing) * 3,
+        component_text_y_pos,
+        component_text_size,
+        rl.Color.black,
+    );
 
     // window formula
-    var formula_text: [:0]const u8 = undefined;
-    if (state.exponent == 0 and state.mantissa != 0) {
-        formula_text = std.fmt.bufPrintZ(
-            state.buf[fp_text_buffer_length + 200 .. fp_text_buffer_length + 300],
-            "window (exponent) formula (subnormal): 2^126",
-            .{},
-        ) catch @panic("Failed to render formula");
-    } else {
-        formula_text = std.fmt.bufPrintZ(
-            state.buf[fp_text_buffer_length + 200 .. fp_text_buffer_length + 300],
-            "window (exponent) formula (normal): 2^({d}-15)\n",
-            .{state.exponent},
-        ) catch @panic("Failed to render formula");
-    }
-    rl.drawText(formula_text, 200, 300, 10, rl.Color.black);
+    // var formula_text: [:0]const u8 = undefined;
+    // if (state.exponent == 0 and state.mantissa != 0) {
+    //     formula_text = std.fmt.bufPrintZ(
+    //         state.buf[fp_text_buffer_length + 200 .. fp_text_buffer_length + 300],
+    //         "window (exponent) formula (subnormal): 2^126",
+    //         .{},
+    //     ) catch @panic("Failed to render formula");
+    // } else {
+    //     formula_text = std.fmt.bufPrintZ(
+    //         state.buf[fp_text_buffer_length + 200 .. fp_text_buffer_length + 300],
+    //         "window (exponent) formula (normal): 2^({d}-15)\n",
+    //         .{state.exponent},
+    //     ) catch @panic("Failed to render formula");
+    // }
+    // rl.drawText(
+    //     formula_text,
+    //     @divTrunc(state.window_width, component_text_spacing) * 2 - 125,
+    //     component_text_y_pos + 120,
+    //     component_text_size,
+    //     rl.Color.black,
+    // );
 
     // number line
     const line_margin_ratio = 6;
