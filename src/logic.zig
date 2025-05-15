@@ -37,8 +37,22 @@ export fn init(state: *State, width: i32, height: i32, buf: *[1024]u8) void {
     };
 }
 
+const tau_button_rect: rl.Rectangle = .{ .x = 20, .y = 20, .width = 50, .height = 50 };
+
 export fn update(opaque_state: *anyopaque) void {
     const state: *State = @ptrCast(@alignCast(opaque_state));
+
+    // tau button handling
+    if (rl.isMouseButtonReleased(rl.MouseButton.left) and rl.checkCollisionPointRec(rl.getMousePosition(), tau_button_rect)) {
+        state.number = fp_number;
+        state.number_text = std.fmt.bufPrintZ(state.buf, "{d}", .{state.number}) catch @panic("Failed to render number text");
+
+        state.bit_repr = @bitCast(state.number);
+
+        state.sign = (@as(u1, @truncate((state.bit_repr >> 15) & 0b1)));
+        state.exponent = @as(u5, @truncate((state.bit_repr >> 10) & 0b11111));
+        state.mantissa = @as(u10, @truncate(state.bit_repr & 0b1111111111));
+    }
 
     // Text input focus
     if (rl.isMouseButtonPressed(rl.MouseButton.left)) {
@@ -245,6 +259,10 @@ export fn draw(opaque_state: *anyopaque) void {
         @floatCast(normalized_fp_value),
         500,
     );
+
+    // tau button
+    rl.drawRectangleRec(tau_button_rect, rl.Color.light_gray);
+    rl.drawText("\u{03c4}", 35, 30, 30, rl.Color.black);
 
     rl.endDrawing();
 }
