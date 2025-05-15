@@ -16,7 +16,7 @@ export fn init(state: *State, width: i32, height: i32, buf: *[1024]u8) void {
     state.window_width = width;
     state.window_height = height;
     state.number = fp_number;
-    state.number_text = std.fmt.bufPrintZ(buf, "{d}", .{state.number}) catch @panic("Failed to render number text");
+    state.number_text = std.fmt.bufPrintZ(buf, "{d:0<10}", .{state.number}) catch @panic("Failed to render number text");
 
     state.bit_repr = @bitCast(state.number);
 
@@ -117,7 +117,28 @@ export fn draw(opaque_state: *anyopaque) void {
     rl.drawRectangleRec(state.text_rect, text_box_color);
 
     // inputted number
-    rl.drawText(state.number_text, @divTrunc(state.window_width, 2), @intFromFloat(state.text_rect.y), @intFromFloat(state.text_rect.height), rl.Color.black);
+    rl.drawText(
+        state.number_text,
+        @divTrunc(state.window_width, 2) - 100,
+        @intFromFloat(state.text_rect.y),
+        @intFromFloat(state.text_rect.height),
+        rl.Color.black,
+    );
+
+    // machine representation of number
+    // const full_number_text = std.fmt.bufPrintZ(
+    //     state.buf[500..600],
+    //     "{d:0<10}",
+    //     .{state.number},
+    // ) catch @panic("Failed to render full number");
+
+    // rl.drawText(
+    //     full_number_text,
+    //     @divTrunc(state.window_width, 2) - 100,
+    //     @as(i32, @intFromFloat(state.text_rect.y)) + 100,
+    //     @intFromFloat(@divTrunc(state.text_rect.height, 2)),
+    //     rl.Color.black,
+    // );
 
     // number components
     const sign_text = std.fmt.bufPrintZ(
@@ -140,7 +161,7 @@ export fn draw(opaque_state: *anyopaque) void {
 
     const component_text_size = 20;
     const component_text_spacing = 4;
-    const component_text_y_pos: i32 = @as(i32, @intFromFloat(state.text_rect.height)) + 150;
+    const component_text_y_pos: i32 = @as(i32, @intFromFloat(state.text_rect.y)) + 150;
     rl.drawText(
         sign_text,
         @divTrunc(state.window_width, component_text_spacing),
@@ -190,7 +211,7 @@ export fn draw(opaque_state: *anyopaque) void {
     const line_margin_ratio = 6;
     const line_start = @divTrunc(state.window_width, line_margin_ratio);
     const line_end = line_start * (line_margin_ratio - 1);
-    const line_height = state.window_height - 100;
+    const line_height = state.window_height - 200;
     rl.drawLine(line_start, line_height, line_end, line_height, rl.Color.black);
 
     // numeric bounds
