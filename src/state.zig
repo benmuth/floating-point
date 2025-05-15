@@ -19,3 +19,5 @@ cursor_pos: u32,
 is_text_focused: bool,
 
 text_rect: rl.Rectangle,
+
+is_moving_offset_marker: bool,

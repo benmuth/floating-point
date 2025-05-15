@@ -16,7 +16,7 @@ export fn init(state: *State, width: i32, height: i32, buf: *[1024]u8) void {
     state.window_width = width;
     state.window_height = height;
     state.number = fp_number;
-    state.number_text = std.fmt.bufPrintZ(buf, "{d:0<10}", .{state.number}) catch @panic("Failed to render number text");
+    state.number_text = std.fmt.bufPrintZ(buf, "{d}", .{state.number}) catch @panic("Failed to render number text");
 
     state.bit_repr = @bitCast(state.number);
 
@@ -55,15 +55,15 @@ export fn update(opaque_state: *anyopaque) void {
 
         // Handle multiple keys pressed in a single frame
         while (char > 0) {
-            std.debug.print("char: {d}\n", .{char});
+            // std.debug.print("char: {d}\n", .{char});
 
             const is_digit_or_period_or_dash = (char >= 48 and char <= 57) or char == 46 or char == 45;
             if (is_digit_or_period_or_dash and state.cursor_pos < fp_text_buffer_length) {
                 state.buf[state.cursor_pos] = @intCast(char);
                 state.cursor_pos += 1;
                 state.buf[state.cursor_pos] = 0; // Add null terminator at the end of the string.
-                std.debug.print("cursor: {d}\n", .{state.cursor_pos});
-                std.debug.print("number: {s}\n", .{state.number_text});
+                // std.debug.print("cursor: {d}\n", .{state.cursor_pos});
+                // std.debug.print("number: {s}\n", .{state.number_text});
             }
 
             char = rl.getCharPressed(); // Check next character in the queue
@@ -76,8 +76,8 @@ export fn update(opaque_state: *anyopaque) void {
 
         const cleaned_number = std.mem.span(state.number_text.ptr);
 
-        std.debug.print("cleaned number: {s}\n", .{cleaned_number});
-        std.debug.print("cleaned number: {any}\n", .{cleaned_number});
+        // std.debug.print("cleaned number: {s}\n", .{cleaned_number});
+        // std.debug.print("cleaned number: {any}\n", .{cleaned_number});
 
         // TODO: deal with an empty string better
         if (cleaned_number.len == 0) {
@@ -207,13 +207,6 @@ export fn draw(opaque_state: *anyopaque) void {
     //     rl.Color.black,
     // );
 
-    // number line
-    const line_margin_ratio = 6;
-    const line_start = @divTrunc(state.window_width, line_margin_ratio);
-    const line_end = line_start * (line_margin_ratio - 1);
-    const line_height = state.window_height - 200;
-    rl.drawLine(line_start, line_height, line_end, line_height, rl.Color.black);
-
     // numeric bounds
     var lower_bound: f32 = undefined;
     var upper_bound: f32 = undefined;
@@ -230,14 +223,30 @@ export fn draw(opaque_state: *anyopaque) void {
         upper_bound = lower_bound * 2;
     }
 
+    const mantissa_float: f16 = @floatFromInt(state.mantissa);
+    const normalized_mantissa = mantissa_float / std.math.pow(f32, 2, 10);
+    drawNumberLine(state, lower_bound, upper_bound, normalized_mantissa, 400);
+
+    rl.endDrawing();
+}
+
+fn drawNumberLine(state: *State, lower_bound: f32, upper_bound: f32, normalized_offset: f32, buf_offset: usize) void {
+    // line
+    const line_margin_ratio = 6;
+    const line_start = @divTrunc(state.window_width, line_margin_ratio);
+    const line_end = line_start * (line_margin_ratio - 1);
+    const line_height = state.window_height - 200;
+    rl.drawLine(line_start, line_height, line_end, line_height, rl.Color.black);
+
+    // numeric bounds
     const lower_bound_text = std.fmt.bufPrintZ(
-        state.buf[400..450],
+        state.buf[buf_offset .. buf_offset + 50],
         "{d}",
         .{lower_bound},
     ) catch @panic("failed to render lower bound");
 
     const upper_bound_text = std.fmt.bufPrintZ(
-        state.buf[450..500],
+        state.buf[buf_offset + 50 .. buf_offset + 100],
         "{d}",
         .{upper_bound},
     ) catch @panic("failed to render upper bound");
@@ -248,15 +257,12 @@ export fn draw(opaque_state: *anyopaque) void {
     // offset marker
     const line_start_float: f16 = @floatFromInt(line_start);
     const line_end_float: f16 = @floatFromInt(line_end);
-    const mantissa_float: f16 = @floatFromInt(state.mantissa);
     const line_height_float: f16 = @floatFromInt(line_height);
-
-    const normalized_mantissa = mantissa_float / std.math.pow(f32, 2, 10);
 
     const offset_pos = std.math.lerp(
         line_start_float,
         line_end_float,
-        normalized_mantissa,
+        normalized_offset,
     );
 
     const offset_marker_top: rl.Vector2 = .{ .x = offset_pos, .y = line_height_float + 10 };
@@ -265,5 +271,15 @@ export fn draw(opaque_state: *anyopaque) void {
 
     rl.drawTriangle(offset_marker_top, offset_marker_left, offset_marker_right, rl.Color.black);
 
-    rl.endDrawing();
+    // // dragging offset marker
+    // if (rl.isMouseButtonPressed(rl.MouseButton.left)) {
+    //     if (rl.checkCollisionPointTriangle(rl.getMousePosition(), offset_marker_top, offset_marker_left, offset_marker_right)) {
+    //         state.is_moving_offset_marker = true;
+    //         rl.drawTriangle(offset_marker_top, offset_marker_left, offset_marker_right, rl.Color.red);
+    //     }
+    //     // rl.drawTriangle(offset_marker_top, offset_marker_left, offset_marker_right, rl.Color.blue);
+    // } else {
+    //     state.is_moving_offset_marker = false;
+    //     rl.drawTriangle(offset_marker_top, offset_marker_left, offset_marker_right, rl.Color.green);
+    // }
 }
