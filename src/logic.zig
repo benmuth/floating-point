@@ -223,20 +223,38 @@ export fn draw(opaque_state: *anyopaque) void {
         upper_bound = lower_bound * 2;
     }
 
+    // window number line
     const mantissa_float: f16 = @floatFromInt(state.mantissa);
     const normalized_mantissa = mantissa_float / std.math.pow(f32, 2, 10);
-    drawNumberLine(state, lower_bound, upper_bound, normalized_mantissa, 400);
+    drawNumberLine(
+        state,
+        state.window_height - 200,
+        lower_bound,
+        upper_bound,
+        normalized_mantissa,
+        400,
+    );
+
+    // full number line
+    const normalized_fp_value: f128 = (@as(f128, @floatCast(std.math.floatMax(f16))) + @as(f128, @floatCast(state.number))) / (2 * @as(f128, @floatCast(std.math.floatMax(f16))));
+    drawNumberLine(
+        state,
+        state.window_height - 300,
+        -std.math.floatMax(f16),
+        std.math.floatMax(f16),
+        @floatCast(normalized_fp_value),
+        500,
+    );
 
     rl.endDrawing();
 }
 
-fn drawNumberLine(state: *State, lower_bound: f32, upper_bound: f32, normalized_offset: f32, buf_offset: usize) void {
+fn drawNumberLine(state: *State, height: i32, lower_bound: f32, upper_bound: f32, normalized_offset: f32, buf_offset: usize) void {
     // line
     const line_margin_ratio = 6;
     const line_start = @divTrunc(state.window_width, line_margin_ratio);
     const line_end = line_start * (line_margin_ratio - 1);
-    const line_height = state.window_height - 200;
-    rl.drawLine(line_start, line_height, line_end, line_height, rl.Color.black);
+    rl.drawLine(line_start, height, line_end, height, rl.Color.black);
 
     // numeric bounds
     const lower_bound_text = std.fmt.bufPrintZ(
@@ -251,13 +269,13 @@ fn drawNumberLine(state: *State, lower_bound: f32, upper_bound: f32, normalized_
         .{upper_bound},
     ) catch @panic("failed to render upper bound");
 
-    rl.drawText(lower_bound_text, line_start, line_height - 20, 20, rl.Color.black);
-    rl.drawText(upper_bound_text, line_end, line_height - 20, 20, rl.Color.black);
+    rl.drawText(lower_bound_text, line_start, height - 20, 20, rl.Color.black);
+    rl.drawText(upper_bound_text, line_end, height - 20, 20, rl.Color.black);
 
     // offset marker
     const line_start_float: f16 = @floatFromInt(line_start);
     const line_end_float: f16 = @floatFromInt(line_end);
-    const line_height_float: f16 = @floatFromInt(line_height);
+    const line_height_float: f16 = @floatFromInt(height);
 
     const offset_pos = std.math.lerp(
         line_start_float,
