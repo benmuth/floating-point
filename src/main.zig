@@ -7,10 +7,10 @@ const window_height = 800;
 
 const StatePtr = *anyopaque;
 
-var init: *const fn (width: i32, height: i32, buf: *[1024]u8) StatePtr = undefined;
-var update: *const fn (state: StatePtr) void = undefined;
-var reload: *const fn (state: StatePtr) void = undefined;
-var draw: *const fn (state: StatePtr) void = undefined;
+var init: *const fn (state: StatePtr, width: i32, height: i32, buf: *[4096]u8) callconv(.c) void = undefined;
+var update: *const fn (state: StatePtr) callconv(.c) void = undefined;
+var reload: *const fn (state: StatePtr) callconv(.c) void = undefined;
+var draw: *const fn (state: StatePtr) callconv(.c) void = undefined;
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -19,14 +19,11 @@ pub fn main() !void {
 
     try loadLogicDll();
 
-    // const buffer: []u8 = try allocator.alloc(u8, 1024);
-    var buffer: [1024]u8 = undefined;
+    var buffer: [4096]u8 = undefined;
 
-    const state = init(
-        window_width,
-        window_height,
-        &buffer,
-    );
+    const state = try allocator.create(State);
+
+    init(state, window_width, window_height, &buffer);
 
     rl.initWindow(window_width, window_height, "floating point");
     rl.setTargetFPS(60);
